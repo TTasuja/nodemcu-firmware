@@ -217,7 +217,6 @@ CCFLAGS += 			\
 	-g			\
 	-Wpointer-arith		\
 	-Wundef			\
-	-Werror			\
 	-Wl,-EL			\
 	-fno-inline-functions	\
 	-nostdlib       \
@@ -478,6 +477,11 @@ $(foreach lib,$(GEN_LIBS),$(eval $(call MakeLibrary,$(basename $(lib)))))
 $(foreach image,$(GEN_IMAGES),$(eval $(call MakeImage,$(basename $(image)))))
 
 endif # TARGET
+
+blob:
+	$(MAKE)
+	srec_cat -output $(TOP_DIR)/bin/blob.bin -binary $(TOP_DIR)/bin/0x00000.bin -binary -fill 0xff 0x00000 0x10000 $(TOP_DIR)/bin/0x10000.bin -binary -offset 0x10000
+
 #############################################################
 # Recursion Magic - Don't touch this!!
 #

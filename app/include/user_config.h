@@ -35,7 +35,7 @@
 // no performance loss.  However, you can define LUA_DWORD_ALIGNED_TVALUES and
 // this will force 16 byte TValues on FP builds.
 
-//#define LUA_NUMBER_INTEGRAL
+#define LUA_NUMBER_INTEGRAL
 //#define LUA_DWORD_ALIGNED_TVALUES
 
 
@@ -79,7 +79,7 @@
 #define BUILD_SPIFFS
 #define SPIFFS_CACHE 1          // Enable if you use you SPIFFS in R/W mode
 //#define SPIFFS_MAX_FILESYSTEM_SIZE 0x20000
-#define SPIFFS_MAX_OPEN_FILES 4 // maximum number of open files for SPIFFS
+#define SPIFFS_MAX_OPEN_FILES 6 // maximum number of open files for SPIFFS
 #define FS_OBJ_NAME_LEN 31      // maximum length of a filename
 
 //#define BUILD_FATFS
@@ -93,10 +93,10 @@
 // The SHA1 and MD5 function are implemented in the ROM BIOS. The MD2 and SHA2
 // are by firmware code, and can be enabled if you need this functionality.
 
-//#define CLIENT_SSL_ENABLE
+#define CLIENT_SSL_ENABLE
 //#define MD2_ENABLE
 #define SHA2_ENABLE
-#define SSL_BUFFER_SIZE 4096
+#define SSL_BUFFER_SIZE 5120
 #define SSL_MAX_FRAGMENT_LENGTH_CODE	MBEDTLS_SSL_MAX_FRAG_LEN_4096
 
 
@@ -106,8 +106,8 @@
 // don't require this functionality, then commenting out these options out
 // will remove any associated runtime overhead.
 
-#define GPIO_INTERRUPT_ENABLE
-#define GPIO_INTERRUPT_HOOK_ENABLE
+//#define GPIO_INTERRUPT_ENABLE
+//#define GPIO_INTERRUPT_HOOK_ENABLE
 
 
 // If your application uses the light sleep functions and you wish the
@@ -145,14 +145,14 @@
 // append the last 3 octets of the MAC address.  Note that the total
 // Hostname MUST be 32 chars or less.
 
-//#define WIFI_STA_HOSTNAME "NodeMCU"
-//#define WIFI_STA_HOSTNAME_APPEND_MAC
+#define WIFI_STA_HOSTNAME "Themo"
+#define WIFI_STA_HOSTNAME_APPEND_MAC
 
 
 // If you use the enduser_setup module, then you can also set the default
 // SSID when this module is running in AP mode.
 
-#define ENDUSER_SETUP_AP_SSID "SetupGadget"
+#define ENDUSER_SETUP_AP_SSID "Themo"
 
 
 // I2C software driver partially supports use of GPIO16 (D0) pin for SCL line.
@@ -168,7 +168,7 @@
 // It does not support changing speed, have only one bus id = 0, does not support GPIO16
 // and works only in Standard(slow) mode with clock speed around 50kHz.
 
-#define I2C_MASTER_OLD_VERSION
+//#define I2C_MASTER_OLD_VERSION
 
 
 // The following sections are only relevent for those developers who are

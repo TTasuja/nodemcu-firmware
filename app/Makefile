@@ -112,6 +112,7 @@ LINKFLAGS_eagle.app.v6 = 	\
 	-lc 					\
 	-lm						\
 	-Wl,--end-group
+
 #	-Wl,--cref
 #	-Wl,--wrap=_xtos_set_exception_handler
 
@@ -151,7 +152,7 @@ DDEFINES += 						\
 # Required for each makefile to inherit from the parent
 #
 INCLUDES := -I $(PDIR)libc -I $(PDIR)lua -I $(PDIR)platform \
-            $(INCLUDES) -I $(PDIR) -I $(PDIR)include 
+            $(INCLUDES) -I $(PDIR) -I $(PDIR)include
 PDIR := ../$(PDIR)
 
 sinclude $(PDIR)Makefile
