@@ -144,8 +144,12 @@ static void enduser_setup_ap_start(void);
 static void enduser_setup_ap_stop(void);
 static void enduser_setup_check_station(void *p);
 static void enduser_setup_debug(int line, const char *str);
+static int enduser_setup_mcudata(lua_State* L);
+
 
 static char ipaddr[16];
+static char themo_state_response[512];
+static char themo_conf_set[512];
 
 #if ENDUSER_SETUP_DEBUG_ENABLE
 #define ENDUSER_SETUP_DEBUG(str) enduser_setup_debug(__LINE__, str)
@@ -172,6 +176,15 @@ static char ipaddr[16];
     if (!(err_severity & ENDUSER_SETUP_ERR_NO_RETURN)) \
       return; \
   } while (0)
+
+
+static int enduser_setup_mcudata(lua_State* L)
+{
+  size_t len;
+  const char *mcudata = luaL_checklstring( L, 1, &len );
+
+  strcpy(themo_state_response, mcudata);
+}
 
 
 static void enduser_setup_debug(int line, const char *str)
@@ -310,9 +323,9 @@ static void enduser_setup_check_station(void *p)
   else
   {
     ENDUSER_SETUP_DEBUG("Turning off Station due to different channel than AP");
-    wifi_station_disconnect();
-    wifi_set_opmode(SOFTAP_MODE);
-    enduser_setup_ap_start();
+    //wifi_station_disconnect();
+    //wifi_set_opmode(SOFTAP_MODE);
+    //enduser_setup_ap_start();
   }
 
   enduser_setup_check_station_stop();
@@ -393,6 +406,28 @@ static err_t close_once_sent (void *arg, struct tcp_pcb *pcb, u16_t len)
   deferred_close (pcb);
   return ERR_OK;
 }
+
+
+/**
+ * Search String
+ *
+ * Search string for first occurance of any char in srch_str.
+ *
+ * @return -1 iff no occurance of char was found.
+ */
+static int enduser_setup_srch_str(const char *str, const char *srch_str)
+{
+  char *found = strpbrk (str, srch_str);
+  if (!found)
+  {
+    return -1;
+  }
+  else
+  {
+    return found - str;
+  }
+}
+
 
 /* ------------------------------------------------------------------------- */
 
@@ -759,7 +794,7 @@ static int enduser_setup_write_file_with_extra_configuration_data(char *form_bod
   }
 
   // Now that we have the keys and the values, let's save them in a lua file
-  int p_file = vfs_open("eus_params.lua", "w");
+  int p_file = vfs_open("enduser_custom_parameters.json", "w");
   if (p_file == 0)
   {
     ENDUSER_SETUP_DEBUG("Can't open file in write mode!");
@@ -813,21 +848,31 @@ static int enduser_setup_http_handle_credentials(char *data, unsigned short data
   state->success = 0;
   state->lastStationStatus = 0;
 
-  char *name_str = strstr(data, "wifi_ssid=");
-  char *pwd_str = strstr(data, "wifi_password=");
+  char *name_str = (char *) ((uint32_t)strstr(&(data[6]), "ssid=")); //ssid
+  char *pwd_str = (char *) ((uint32_t)strstr(&(data[6]), "password=")); //password
+  char *auth_str = (char *) ((uint32_t)strstr(&(data[6]), "auth=")); //auth
+  char *deviceid_str = (char *) ((uint32_t)strstr(&(data[6]), "deviceId=")); //deviceId
+  char *lights_str = (char *) ((uint32_t)strstr(&(data[6]), "lights=")); //lights
+  char *sensor_str = (char *) ((uint32_t)strstr(&(data[6]), "sensor=")); //sensor
+
   if (name_str == NULL || pwd_str == NULL)
   {
     ENDUSER_SETUP_DEBUG("Password or SSID string not found");
     return 1;
   }
 
-  int name_field_len = LITLEN("wifi_ssid=");
-  int pwd_field_len = LITLEN("wifi_password=");
+  int name_field_len = LITLEN("ssid=");
+  int pwd_field_len = LITLEN("password=");
   char *name_str_start = name_str + name_field_len;
   char *pwd_str_start = pwd_str + pwd_field_len;
 
-  int name_str_len = enduser_setup_get_lenth_of_param_value(name_str_start);
-  int pwd_str_len = enduser_setup_get_lenth_of_param_value(pwd_str_start);
+  int name_str_len = enduser_setup_srch_str(name_str_start, "& ");
+  int pwd_str_len = enduser_setup_srch_str(pwd_str_start, "& ");
+  if (name_str_len == -1 || pwd_str_len == -1)
+  {
+    ENDUSER_SETUP_DEBUG("Password or SSID HTTP paramter divider not found");
+    return 1;
+  }
 
 
   struct station_config *cnf = luaM_malloc(lua_getstate(), sizeof(struct station_config));
@@ -843,6 +888,62 @@ static int enduser_setup_http_handle_credentials(char *data, unsigned short data
     ENDUSER_SETUP_DEBUG("Unable to decode HTTP parameter to valid password or SSID");
     return 1;
   }
+  else
+  {
+      ENDUSER_SETUP_DEBUG("SSID and password decoded");
+  }
+
+ if((auth_str != NULL)&&(lights_str != NULL)) //Themo on-line conf page
+  {
+    ENDUSER_SETUP_DEBUG("Extra Data found from on-line page");
+
+    int auth_field_len = LITLEN("auth=");
+    int deviceid_field_len = LITLEN("deviceId=");
+    int sensor_field_len = LITLEN("sensor=");
+    int lights_field_len = LITLEN("lights=");
+
+    char *auth_str_start = auth_str + auth_field_len;
+    char *deviceid_str_start = deviceid_str + deviceid_field_len;
+    char *sensor_str_start = sensor_str + sensor_field_len;
+    char *lights_str_start = lights_str + lights_field_len;
+
+    int auth_str_len = enduser_setup_srch_str(auth_str_start, "& ");
+    int deviceid_str_len = enduser_setup_srch_str(deviceid_str_start, "& ");
+    int sensor_str_len = enduser_setup_srch_str(sensor_str_start, "& ");
+    int lights_str_len = enduser_setup_srch_str(lights_str_start, "& ");
+
+    /* Create a new variable for storing the decoded string.
+     * Add one more size(char) to allow for \0 */
+    uint8 decoded_auth_str[auth_str_len+1];
+    uint8 decoded_deviceid_str[deviceid_str_len+1];
+    uint8 decoded_sensor_str[sensor_str_len+1];
+    uint8 decoded_lights_str[lights_str_len+1];
+
+    err |= enduser_setup_http_urldecode(decoded_auth_str, auth_str_start, auth_str_len, sizeof(decoded_auth_str));
+    err |= enduser_setup_http_urldecode(decoded_deviceid_str, deviceid_str_start, deviceid_str_len, sizeof(decoded_deviceid_str));
+    err |= enduser_setup_http_urldecode(decoded_sensor_str, sensor_str_start, sensor_str_len, sizeof(decoded_sensor_str));
+    err |= enduser_setup_http_urldecode(decoded_lights_str, lights_str_start, lights_str_len, sizeof(decoded_lights_str));
+
+
+    int themo_conf_set_len = sprintf(themo_conf_set, "{\"ssid\":\"%s\",\"password\":\"%s\",\"deviceId\":\"%s\",\"auth\":\"%s\",\"sensor\":\"%s\",\"lights\":\"%s\"}", cnf->ssid, cnf->password, decoded_deviceid_str, decoded_auth_str, decoded_sensor_str, decoded_lights_str);
+
+    enduser_setup_write_file_with_extra_configuration_data(themo_conf_set, themo_conf_set_len);
+
+    ENDUSER_SETUP_DEBUG("");
+    ENDUSER_SETUP_DEBUG("ADDITIONAL CONF");
+    ENDUSER_SETUP_DEBUG("-----------------------");
+    ENDUSER_SETUP_DEBUG("auth: ");
+    ENDUSER_SETUP_DEBUG(decoded_auth_str);
+    ENDUSER_SETUP_DEBUG("deviceid: ");
+    ENDUSER_SETUP_DEBUG(decoded_deviceid_str);
+    ENDUSER_SETUP_DEBUG("sensor: ");
+    ENDUSER_SETUP_DEBUG(decoded_sensor_str);
+    ENDUSER_SETUP_DEBUG("lights: ");
+    ENDUSER_SETUP_DEBUG(decoded_lights_str);
+    ENDUSER_SETUP_DEBUG("-----------------------");
+    ENDUSER_SETUP_DEBUG("");
+  }
+
 
   ENDUSER_SETUP_DEBUG("");
   ENDUSER_SETUP_DEBUG("WiFi Credentials Stored");
